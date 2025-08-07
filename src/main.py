@@ -55,7 +55,7 @@ def get_greeting(date: datetime) -> str:
 
 
 def get_currency_rates() -> list:
-    # Заглушка - в реальности API запрос
+    # Заглушка
     return [
         {'currency': 'USD', 'rate': 75.50},
         {'currency': 'EUR', 'rate': 85.20}
@@ -63,7 +63,7 @@ def get_currency_rates() -> list:
 
 
 def get_stock_prices() -> list:
-    # Заглушка - в реальности API запрос
+    # Заглушка
     return [
         {'stock': 'AAPL', 'price': 150.12},
         {'stock': 'GOOGL', 'price': 2742.39}
