@@ -7,7 +7,6 @@ import json
 import re
 
 
-# Настройка логирования для всех модулей
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
@@ -36,7 +35,14 @@ def load_transactions(file_path: str) -> pd.DataFrame:
         if file_path.endswith('.xlsx'):
             df = pd.read_excel(file_path, engine='openpyxl')
         elif file_path.endswith('.csv'):
-            df = pd.read_csv(file_path, decimal=',', thousands=' ')
+            # Указываем явно параметры для CSV
+            df = pd.read_csv(
+                file_path,
+                decimal=',',
+                thousands=' ',
+                parse_dates=['Дата операции'],
+                dayfirst=True
+            )
         else:
             raise ValueError("Поддерживаются только .xlsx или .csv")
 
@@ -49,18 +55,22 @@ def load_transactions(file_path: str) -> pd.DataFrame:
             'Валюта операции': 'currency',
             'Сумма платежа': 'payment_amount',
             'Валюта платежа': 'payment_currency',
-            'Кешбэк': 'cashback',
+            'Кэшбэк': 'cashback',
             'Категория': 'category',
             'MCC': 'mcc',
             'Описание': 'description',
-            'Бонусы (включая кешбэк)': 'bonuses',
-            'Округление на Инвесткопилку': 'rounding',
+            'Бонусы (включая кэшбэк)': 'bonuses',
+            'Округление на инвесткопилку': 'rounding',
             'Сумма операции с округлением': 'rounded_amount'
         }
 
-        df.rename(columns=column_mapping, inplace=True)
-        df['date'] = pd.to_datetime(df['date'], dayfirst=True)
-        df['amount'] = df['amount'].astype(float)
+        # Переименовываем только те столбцы, которые есть в файле
+        existing_columns = [col for col in column_mapping.keys() if col in df.columns]
+        df.rename(columns={col: column_mapping[col] for col in existing_columns}, inplace=True)
+
+        # Преобразуем amount в числовой формат
+        if 'amount' in df.columns:
+            df['amount'] = pd.to_numeric(df['amount'].astype(str).str.replace(',', '.'), errors='coerce')
 
         logger.info(f"Загружено {len(df)} транзакций")
         return df

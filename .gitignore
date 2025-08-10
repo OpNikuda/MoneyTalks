@@ -20,14 +20,6 @@ pip-log.txt
 *.swp
 *.swo
 
-# Данные (CSV, Excel, JSON и т.д.)
-*.csv
-*.xlsx
-*.xls
-*.json
-*.db
-*.sqlite
-
 # Логи и кэш
 *.log
 .cache/
