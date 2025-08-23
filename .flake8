@@ -1,0 +1,51 @@
+[flake8]
+# Базовые настройки
+max-line-length = 88
+extend-ignore = E203, W503
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .env,
+    .tox,
+    .mypy_cache,
+    .pytest_cache,
+    build,
+    dist,
+    migrations,
+    node_modules,
+    *.min.js,
+    *.css,
+    *.html
+
+# Качество кода
+max-complexity = 10
+select =
+    E,  # ошибки
+    W,  # предупреждения
+    F,  # ошибки pyflakes
+    C,  # нарушения сложности кода
+    B,  # ошибки багов
+
+# Игнорируемые правила
+ignore =
+    E501,  # ignore line too long (handled by black)
+    W605,  # invalid escape sequence
+
+# Настройки для конкретных правил
+per-file-ignores =
+    __init__.py: F401
+    tests/*: S101
+
+# Дополнительные плагины (если установлены)
+# plugins =
+#     flake8-docstrings,
+#     flake8-import-order,
+#     flake8-builtins
+
+# Формат вывода
+format = default
+show-source = true
+statistics = true

@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,7 @@ def analyze_cashback_categories(
 ) -> Dict[str, float]:
     """
     Анализирует выгодные категории для повышенного кешбэка.
+    Рассчитывает потенциальный кешбэк 5% от суммы трат по категориям.
 
     Args:
         data: Список транзакций
@@ -51,7 +52,17 @@ def investment_bank(
         transactions: List[Dict[str, Any]],
         limit: int
 ) -> float:
+    """
+    Рассчитывает сумму для инвестиционного копилка на основе округления транзакций.
 
+    Args:
+        month: Месяц анализа в формате 'YYYY-MM'
+        transactions: Список транзакций
+        limit: Лимит округления
+
+    Returns:
+        Сумма для инвестиционного копилка
+    """
     try:
         year, month = map(int, month.split('-'))
         df = pd.DataFrame(transactions)
@@ -80,6 +91,16 @@ def simple_search(
         query: str,
         transactions: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
+    """
+    Выполняет поиск транзакций по описанию или категории.
+
+    Args:
+        query: Строка поиска
+        transactions: Список транзакций для поиска
+
+    Returns:
+        Список найденных транзакций
+    """
     try:
         return [
             t for t in transactions

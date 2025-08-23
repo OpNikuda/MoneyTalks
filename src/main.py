@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta
 import logging
 import pandas as pd
+from typing import Dict, List, Any
 from src.utils import (
     load_transactions,
     filter_transactions_by_date,
@@ -10,12 +11,20 @@ from src.utils import (
     mask_card_number,
     setup_logging
 )
+from src.views import get_stock_prices, get_currency_rates
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def main_function():
+def main_function() -> None:
+    """
+    Основная функция приложения - точка входа.
+    Обрабатывает аргументы командной строки, загружает данные и генерирует отчет.
+
+    Returns:
+        None
+    """
     try:
         parser = argparse.ArgumentParser(description='Анализ банковских транзакций')
         parser.add_argument('file', help='Excel или CSV файл с транзакциями')
@@ -38,6 +47,15 @@ def main_function():
 
 
 def get_greeting(date: datetime) -> str:
+    """
+    Возвращает приветствие в зависимости от времени суток.
+
+    Args:
+        date: Дата и время для определения приветствия
+
+    Returns:
+        Строка с приветствием
+    """
     hour = date.hour
     if 5 <= hour < 12:
         return "Доброе утро"
@@ -48,7 +66,17 @@ def get_greeting(date: datetime) -> str:
     return "Доброй ночи"
 
 
-def generate_home_data(df: pd.DataFrame, date_str: str) -> dict:
+def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
+    """
+    Генерирует основные данные для домашней страницы приложения.
+
+    Args:
+        df: DataFrame с транзакциями
+        date_str: Дата анализа в формате строки 'YYYY-MM-DD'
+
+    Returns:
+        Словарь с данными для отображения: карты, транзакции, курсы валют и акций
+    """
     try:
         date = datetime.strptime(date_str, '%Y-%m-%d')
         start_date = date.replace(day=1)
@@ -84,19 +112,3 @@ def generate_home_data(df: pd.DataFrame, date_str: str) -> dict:
     except Exception as e:
         logger.error(f"Ошибка при генерации данных: {str(e)}")
         raise
-
-
-def get_currency_rates() -> list:
-    """Возвращает текущие курсы валют (заглушка)."""
-    return [
-        {'currency': 'USD', 'rate': 75.50},
-        {'currency': 'EUR', 'rate': 85.20}
-    ]
-
-
-def get_stock_prices() -> list:
-    """Возвращает текущие цены акций (заглушка)."""
-    return [
-        {'stock': 'AAPL', 'price': 150.12},
-        {'stock': 'GOOGL', 'price': 2742.39}
-    ]

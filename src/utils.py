@@ -1,13 +1,24 @@
+"""
+Утилиты и вспомогательные функции для работы с транзакциями.
+Включает функции загрузки данных, фильтрации, расчета кешбэка и другие утилиты.
+"""
+
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
 from logging.handlers import RotatingFileHandler
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Tuple
 import json
 import re
 
 
-def setup_logging():
+def setup_logging() -> None:
+    """
+    Настраивает логирование приложения с ротацией файлов.
+
+    Returns:
+        None
+    """
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -28,6 +39,15 @@ setup_logging()
 
 
 def load_transactions(file_path: str) -> pd.DataFrame:
+    """
+    Загружает транзакции из Excel или CSV файла.
+
+    Args:
+        file_path: Путь к файлу с транзакциями
+
+    Returns:
+        DataFrame с загруженными транзакциями
+    """
     logger = logging.getLogger(__name__)
     logger.info(f"Загрузка файла: {file_path}")
 
@@ -82,6 +102,17 @@ def load_transactions(file_path: str) -> pd.DataFrame:
 
 def filter_transactions_by_date(df: pd.DataFrame, start_date: Union[str, datetime],
                                 end_date: Union[str, datetime]) -> pd.DataFrame:
+    """
+    Фильтрует транзакции по заданному диапазону дат.
+
+    Args:
+        df: DataFrame с транзакциями
+        start_date: Начальная дата диапазона
+        end_date: Конечная дата диапазона
+
+    Returns:
+        Отфильтрованный DataFrame
+    """
     logger = logging.getLogger(__name__)
     try:
         if isinstance(start_date, str):
@@ -99,10 +130,28 @@ def filter_transactions_by_date(df: pd.DataFrame, start_date: Union[str, datetim
 
 
 def calculate_cashback(amount: float) -> float:
+    """
+    Рассчитывает кешбэк 1% от суммы.
+
+    Args:
+        amount: Сумма для расчета кешбэка
+
+    Returns:
+        Размер кешбэка
+    """
     return max(0, amount) * 0.01
 
 
-def get_month_range(date: Union[str, datetime]) -> tuple[datetime, datetime]:
+def get_month_range(date: Union[str, datetime]) -> Tuple[datetime, datetime]:
+    """
+    Возвращает первый и последний день месяца для указанной даты.
+
+    Args:
+        date: Дата для определения диапазона месяца
+
+    Returns:
+        Кортеж (первый_день_месяца, последний_день_месяца)
+    """
     if isinstance(date, str):
         date = pd.to_datetime(date)
     first_day = date.replace(day=1)
@@ -112,17 +161,61 @@ def get_month_range(date: Union[str, datetime]) -> tuple[datetime, datetime]:
 
 
 def mask_card_number(number: str) -> str:
-    return f"****{str(number)[-4:]}" if pd.notna(number) else ""
+    """
+    Маскирует номер карты, оставляя только последние 4 цифры.
+
+    Args:
+        number: Номер карты для маскировки
+
+    Returns:
+        Замаскированный номер карты
+    """
+    if number is None or number == "":
+        return ""
+    return f"****{str(number)[-4:]}"
 
 
-def detect_phone_numbers(text: str) -> list:
-    return re.findall(r'(\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', str(text))
+def detect_phone_numbers(text: str) -> List[str]:
+    """
+    Обнаруживает номера телефонов в тексте.
+
+    Args:
+        text: Текст для поиска номеров телефонов
+
+    Returns:
+        Список найденных номеров телефонов
+    """
+    if text is None:
+        return []
+
+    # Улучшенное регулярное выражение
+    pattern = r'(?:\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
+    return re.findall(pattern, str(text))
 
 
-def save_to_json(data: dict, filename: str):
+def save_to_json(data: Dict[str, Any], filename: str) -> None:
+    """
+    Сохраняет данные в JSON файл.
+
+    Args:
+        data: Данные для сохранения
+        filename: Имя файла
+
+    Returns:
+        None
+    """
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def is_weekend(date: datetime) -> bool:
+    """
+    Проверяет, является ли день выходным.
+
+    Args:
+        date: Дата для проверки
+
+    Returns:
+        True если выходной, иначе False
+    """
     return date.weekday() >= 5
