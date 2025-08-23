@@ -1,9 +1,9 @@
 import argparse
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 import pandas as pd
-from typing import Dict, List, Any
+from typing import Dict, Any
 from src.utils import (
     load_transactions,
     filter_transactions_by_date,
@@ -41,7 +41,7 @@ def main_function() -> None:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         logger.info("Анализ успешно завершен")
 
-    except Exception as e:
+    except Exception:
         logger.exception("Ошибка в работе приложения")
         raise
 

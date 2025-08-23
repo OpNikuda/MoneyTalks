@@ -1,18 +1,13 @@
-# tests/test_reports.py
 import pytest
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import patch, MagicMock, call
-import tempfile
-import os
+from datetime import datetime
+from unittest.mock import patch
 
 from src.reports import (
     spending_by_category,
     spending_by_weekday,
     spending_by_workday,
-    report_to_file
 )
 
 

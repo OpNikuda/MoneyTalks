@@ -1,20 +1,9 @@
-"""
-Модуль представлений для генерации данных отображения.
-Содержит функции для подготовки данных для UI.
-"""
-
-from datetime import datetime
 from typing import Dict, List, Any
-import pandas as pd
 import requests
 import os
 import logging
 from dotenv import load_dotenv
-from src.utils import (
-    filter_transactions_by_date,
-    calculate_cashback,
-    mask_card_number
-)
+
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -62,6 +51,7 @@ def get_currency_rates() -> List[Dict[str, Any]]:
         logger.error(f"Error processing currency rates: {e}")
         return get_currency_rates_fallback()
 
+
 def get_currency_rates_fallback() -> List[Dict[str, Any]]:
     """Заглушка для курсов валют при недоступности API."""
     return [
@@ -70,6 +60,7 @@ def get_currency_rates_fallback() -> List[Dict[str, Any]]:
         {'currency': 'GBP', 'rate': 95.75},
         {'currency': 'JPY', 'rate': 0.68}
     ]
+
 
 def get_stock_prices() -> List[Dict[str, Any]]:
     """
@@ -96,7 +87,7 @@ def get_stock_prices() -> List[Dict[str, Any]]:
 
         stocks = []
         for symbol in symbols:
-            quote_key = f'Global Quote'
+            quote_key = 'Global Quote'
             if quote_key in prices_data and symbol in prices_data[quote_key]:
                 stock_data = prices_data[quote_key][symbol]
                 if '05. price' in stock_data:
@@ -113,6 +104,7 @@ def get_stock_prices() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error processing stock prices: {e}")
         return get_stock_prices_fallback()
+
 
 def get_stock_prices_fallback() -> List[Dict[str, Any]]:
     """Заглушка для цен акций при недоступности API."""

@@ -1,8 +1,3 @@
-"""
-Утилиты и вспомогательные функции для работы с транзакциями.
-Включает функции загрузки данных, фильтрации, расчета кешбэка и другие утилиты.
-"""
-
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
@@ -95,7 +90,7 @@ def load_transactions(file_path: str) -> pd.DataFrame:
         logger.info(f"Загружено {len(df)} транзакций")
         return df
 
-    except Exception as e:
+    except Exception:
         logger.exception("Ошибка загрузки данных")
         raise
 
@@ -124,7 +119,7 @@ def filter_transactions_by_date(df: pd.DataFrame, start_date: Union[str, datetim
         filtered_df = df.loc[mask].copy()
         logger.info(f"Отфильтровано {len(filtered_df)} транзакций")
         return filtered_df
-    except Exception as e:
+    except Exception:
         logger.exception("Ошибка фильтрации по дате")
         raise
 

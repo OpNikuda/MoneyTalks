@@ -1,5 +1,3 @@
-import pytest
-import pandas as pd
 from datetime import datetime
 from src.services import analyze_cashback_categories, investment_bank, simple_search
 

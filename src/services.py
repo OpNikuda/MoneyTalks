@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any
 import logging
 
 logger = logging.getLogger(__name__)

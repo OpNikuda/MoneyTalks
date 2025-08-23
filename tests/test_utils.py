@@ -19,8 +19,6 @@ def test_load_transactions_csv(mock_read_csv):
     mock_df.columns = ['Дата операции', 'Сумма операции', 'Категория']
     mock_read_csv.return_value = mock_df
 
-    result = load_transactions('test.csv')
-
     mock_read_csv.assert_called_once()
     assert 'decimal' in mock_read_csv.call_args[1]
     assert 'thousands' in mock_read_csv.call_args[1]
@@ -33,8 +31,6 @@ def test_load_transactions_xlsx(mock_read_excel):
     mock_df = MagicMock()
     mock_df.columns = ['Дата операции', 'Сумма операции']
     mock_read_excel.return_value = mock_df
-
-    result = load_transactions('test.xlsx')
 
     mock_read_excel.assert_called_once()
     assert 'engine' in mock_read_excel.call_args[1]
@@ -126,3 +122,4 @@ def test_detect_phone_numbers():
     result = detect_phone_numbers(text)
     expected = ['+7 916 123-45-67']
     assert result == expected
+
