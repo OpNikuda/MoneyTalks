@@ -19,5 +19,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pandas = "^2.3.1"
 openpyxl = "^3.1.5"
-pytest = "^8.4.1"
-
