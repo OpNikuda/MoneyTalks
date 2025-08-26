@@ -1,62 +1,91 @@
 import argparse
 import json
-from datetime import datetime
 import logging
+from datetime import date, datetime
+from typing import Any, Dict, List, Union
+
 import pandas as pd
-from typing import Dict, Any
+
 from src.utils import (
-    load_transactions,
-    filter_transactions_by_date,
     calculate_cashback,
+    filter_transactions_by_date,
+    load_transactions,
     mask_card_number,
-    setup_logging
+    setup_logging,
 )
-from src.views import get_stock_prices, get_currency_rates
+from src.views import get_currency_rates, get_stock_prices
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def main_function() -> None:
+def datetime_encoder(obj: Any) -> Any:
     """
-    Основная функция приложения - точка входа.
-    Обрабатывает аргументы командной строки, загружает данные и генерирует отчет.
+    Функция для сериализации datetime и date объектов в JSON.
+    Решает проблему с ошибкой сериализации дат.
+
+    Args:
+        obj: Объект для сериализации
 
     Returns:
-        None
+        Сериализуемый объект или вызывает исключение
     """
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def services_page() -> Dict[str, Any]:
+    """
+    Функция для страницы Сервисы.
+
+    Returns:
+        Словарь с данными для страницы Сервисы
+    """
+    logger.info("Генерация данных для страницы Сервисы")
     try:
-        parser = argparse.ArgumentParser(description='Анализ банковских транзакций')
-        parser.add_argument('file', help='Excel или CSV файл с транзакциями')
-        parser.add_argument('--date',
-                            default=datetime.now().strftime('%Y-%m-%d'),
-                            help='Дата анализа в формате YYYY-MM-DD')
-        args = parser.parse_args()
-
-        logger.info(f"Старт анализа для даты {args.date}")
-
-        df = load_transactions(args.file)
-        result = generate_home_data(df, args.date)
-
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        logger.info("Анализ успешно завершен")
-
-    except Exception:
-        logger.exception("Ошибка в работе приложения")
-        raise
+        # Здесь будет логика для страницы Сервисы
+        return {
+            "page": "services",
+            "message": "Страница сервисов в разработке",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Ошибка в services_page: {str(e)}")
+        return {"error": str(e)}
 
 
-def get_greeting(date: datetime) -> str:
+def reports_page() -> Dict[str, Any]:
+    """
+    Функция для страницы Отчеты.
+
+    Returns:
+        Словарь с данными для страницы Отчеты
+    """
+    logger.info("Генерация данных для страницы Отчеты")
+    try:
+        # Здесь будет логика для страницы Отчеты
+        return {
+            "page": "reports",
+            "message": "Страница отчетов в разработке",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Ошибка в reports_page: {str(e)}")
+        return {"error": str(e)}
+
+
+def get_greeting(date_obj: datetime) -> str:
     """
     Возвращает приветствие в зависимости от времени суток.
 
     Args:
-        date: Дата и время для определения приветствия
+        date_obj: Дата и время для определения приветствия
 
     Returns:
         Строка с приветствием
     """
-    hour = date.hour
+    hour = date_obj.hour
     if 5 <= hour < 12:
         return "Доброе утро"
     elif 12 <= hour < 18:
@@ -78,10 +107,10 @@ def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
         Словарь с данными для отображения: карты, транзакции, курсы валют и акций
     """
     try:
-        date = datetime.strptime(date_str, '%Y-%m-%d')
-        start_date = date.replace(day=1)
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        start_date = date_obj.replace(day=1)
 
-        filtered_df = filter_transactions_by_date(df, start_date, date)
+        filtered_df = filter_transactions_by_date(df, start_date, date_obj)
 
         # Генерация данных по картам
         cards = []
@@ -97,18 +126,102 @@ def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
                     'cashback': round(calculate_cashback(total_spent), 2)
                 })
 
-        # Топ-5 транзакций
-        top_trans = pd.DataFrame()
+        # Топ-5 транзакций (преобразуем даты в строки)
+        top_transactions = []
         if not filtered_df.empty and 'amount' in filtered_df.columns:
             top_trans = filtered_df.nlargest(5, 'amount')[['date', 'amount', 'category', 'description']]
+            for _, row in top_trans.iterrows():
+                transaction = row.to_dict()
+                # Преобразуем datetime в строку для JSON
+                if isinstance(transaction.get('date'), (datetime, date)):
+                    transaction['date'] = transaction['date'].isoformat()
+                top_transactions.append(transaction)
+
+        # Получаем курсы валют и акций
+        currency_rates = get_currency_rates()
+        stock_prices = get_stock_prices()
 
         return {
-            'greeting': get_greeting(date),
+            'greeting': get_greeting(date_obj),
             'cards': cards,
-            'top_transactions': top_trans.to_dict('records') if not top_trans.empty else [],
-            'currency_rates': get_currency_rates(),
-            'stock_prices': get_stock_prices()
+            'top_transactions': top_transactions,
+            'currency_rates': currency_rates,
+            'stock_prices': stock_prices,
+            'analysis_date': date_str
         }
     except Exception as e:
         logger.error(f"Ошибка при генерации данных: {str(e)}")
         raise
+
+
+def main_function() -> None:
+    """
+    Основная функция приложения - точка входа.
+    Обрабатывает аргументы командной строки, загружает данные и генерирует отчет.
+
+    Returns:
+        None
+    """
+    try:
+        parser = argparse.ArgumentParser(description='Анализ банковских транзакций')
+        parser.add_argument('file', help='Excel или CSV файл с транзакциями')
+        parser.add_argument('--date',
+                            default=datetime.now().strftime('%Y-%m-%d'),
+                            help='Дата анализа в формате YYYY-MM-DD')
+        args = parser.parse_args()
+
+        logger.info(f"Старт анализа для даты {args.date}")
+
+        # Загрузка транзакций с обработкой ошибок
+        df = load_transactions(args.file)
+
+        # Генерация данных для домашней страницы
+        result = generate_home_data(df, args.date)
+
+        # Вывод результатов с правильной сериализацией дат
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=datetime_encoder))
+        logger.info("Анализ успешно завершен")
+
+    except FileNotFoundError:
+        logger.error(f"Файл не найден: {args.file}")
+        print(f"Ошибка: Файл {args.file} не найден")
+    except Exception as e:
+        logger.exception("Ошибка в работе приложения")
+        print(f"Ошибка: {str(e)}")
+        raise
+
+
+def run_all_pages() -> None:
+    """
+    Запускает все страницы приложения и выводит результаты.
+    """
+    try:
+        # Запуск основной функции
+        print("=== ДОМАШНЯЯ СТРАНИЦА ===")
+        # Для демонстрации создаем тестовый DataFrame
+        test_df = pd.DataFrame({
+            'date': [datetime.now()],
+            'amount': [1000],
+            'card_last_digits': ['1234'],
+            'category': ['test'],
+            'description': ['test transaction']
+        })
+        home_data = generate_home_data(test_df, datetime.now().strftime('%Y-%m-%d'))
+        print(json.dumps(home_data, indent=2, ensure_ascii=False, default=datetime_encoder))
+
+        print("\n=== СТРАНИЦА СЕРВИСЫ ===")
+        services_data = services_page()
+        print(json.dumps(services_data, indent=2, ensure_ascii=False))
+
+        print("\n=== СТРАНИЦА ОТЧЕТЫ ===")
+        reports_data = reports_page()
+        print(json.dumps(reports_data, indent=2, ensure_ascii=False))
+
+    except Exception as e:
+        logger.error(f"Ошибка при запуске всех страниц: {str(e)}")
+        print(f"Ошибка: {str(e)}")
+
+
+if __name__ == "__main__":
+    # Вызов основной функции
+    main_function()

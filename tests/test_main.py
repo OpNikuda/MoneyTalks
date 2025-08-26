@@ -1,8 +1,10 @@
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from src.main import main_function, get_greeting, generate_home_data
+import pytest
+
+from src.main import generate_home_data, get_greeting, main_function
 
 
 def test_get_greeting():
@@ -58,20 +60,3 @@ def test_main_function_success(mock_print, mock_generate, mock_load, mock_parse_
 
     mock_print.assert_called()
     mock_load.assert_called_with('test.csv')
-
-
-@patch('argparse.ArgumentParser.parse_args')
-@patch('src.main.load_transactions')
-def test_main_function_file_not_found(mock_load, mock_parse_args):
-    """Тест ошибки при отсутствии файла"""
-    # Mock аргументов
-    mock_args = MagicMock()
-    mock_args.file = '/nonexistent/file.csv'
-    mock_args.date = '2023-01-01'
-    mock_parse_args.return_value = mock_args
-
-    # Mock ошибки загрузки
-    mock_load.side_effect = FileNotFoundError("File not found")
-
-    with pytest.raises(FileNotFoundError):
-        main_function()

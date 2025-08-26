@@ -1,10 +1,13 @@
-import pandas as pd
-from datetime import datetime, timedelta
-import logging
-from logging.handlers import RotatingFileHandler
-from typing import Union, List, Dict, Any, Tuple
 import json
+import logging
 import re
+from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
+from typing import Any, Dict, List, Tuple, Union
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def setup_logging() -> None:
@@ -30,9 +33,6 @@ def setup_logging() -> None:
     logging.captureWarnings(True)
 
 
-setup_logging()
-
-
 def load_transactions(file_path: str) -> pd.DataFrame:
     """
     Загружает транзакции из Excel или CSV файла.
@@ -43,7 +43,6 @@ def load_transactions(file_path: str) -> pd.DataFrame:
     Returns:
         DataFrame с загруженными транзакциями
     """
-    logger = logging.getLogger(__name__)
     logger.info(f"Загрузка файла: {file_path}")
 
     try:
@@ -85,14 +84,17 @@ def load_transactions(file_path: str) -> pd.DataFrame:
 
         # Преобразуем amount в числовой формат
         if 'amount' in df.columns:
-            df['amount'] = pd.to_numeric(df['amount'].astype(str).str.replace(',', '.'), errors='coerce')
+            df['amount'] = pd.to_numeric(
+                df['amount'].astype(str).str.replace(',', '.').str.replace(' ', ''),
+                errors='coerce'
+            )
 
         logger.info(f"Загружено {len(df)} транзакций")
         return df
 
-    except Exception:
+    except Exception as e:
         logger.exception("Ошибка загрузки данных")
-        raise
+        raise e
 
 
 def filter_transactions_by_date(df: pd.DataFrame, start_date: Union[str, datetime],
@@ -108,20 +110,23 @@ def filter_transactions_by_date(df: pd.DataFrame, start_date: Union[str, datetim
     Returns:
         Отфильтрованный DataFrame
     """
-    logger = logging.getLogger(__name__)
     try:
         if isinstance(start_date, str):
             start_date = pd.to_datetime(start_date)
         if isinstance(end_date, str):
             end_date = pd.to_datetime(end_date)
 
+        # Проверяем наличие колонки date
+        if 'date' not in df.columns:
+            raise ValueError("DataFrame должен содержать колонку 'date'")
+
         mask = (df['date'] >= start_date) & (df['date'] <= end_date)
         filtered_df = df.loc[mask].copy()
         logger.info(f"Отфильтровано {len(filtered_df)} транзакций")
         return filtered_df
-    except Exception:
+    except Exception as e:
         logger.exception("Ошибка фильтрации по дате")
-        raise
+        raise e
 
 
 def calculate_cashback(amount: float) -> float:
@@ -155,7 +160,7 @@ def get_month_range(date: Union[str, datetime]) -> Tuple[datetime, datetime]:
     return first_day, last_day
 
 
-def mask_card_number(number: str) -> str:
+def mask_card_number(number: Union[str, int, float]) -> str:
     """
     Маскирует номер карты, оставляя только последние 4 цифры.
 
@@ -165,9 +170,17 @@ def mask_card_number(number: str) -> str:
     Returns:
         Замаскированный номер карты
     """
-    if number is None or number == "":
+    if number is None or pd.isna(number) or number == "":
         return ""
-    return f"****{str(number)[-4:]}"
+
+    # Преобразуем в строку и убираем пробелы
+    number_str = str(number).strip().replace(' ', '')
+
+    # Если меньше 4 цифр, возвращаем как есть
+    if len(number_str) < 4:
+        return number_str
+
+    return f"****{number_str[-4:]}"
 
 
 def detect_phone_numbers(text: str) -> List[str]:
@@ -183,9 +196,17 @@ def detect_phone_numbers(text: str) -> List[str]:
     if text is None:
         return []
 
-    # Улучшенное регулярное выражение
-    pattern = r'(?:\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
-    return re.findall(pattern, str(text))
+    # Улучшенное регулярное выражение для российских номеров
+    pattern = r'(?:\+7|8)[\s\-\(]?\d{3}[\s\-\)]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
+    phones = re.findall(pattern, str(text))
+
+    # Очищаем номера от лишних символов
+    cleaned_phones = []
+    for phone in phones:
+        cleaned = re.sub(r'[\s\-\(\)]', '', phone)
+        cleaned_phones.append(cleaned)
+
+    return cleaned_phones
 
 
 def save_to_json(data: Dict[str, Any], filename: str) -> None:
@@ -199,8 +220,13 @@ def save_to_json(data: Dict[str, Any], filename: str) -> None:
     Returns:
         None
     """
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Данные сохранены в {filename}")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения в JSON: {str(e)}")
+        raise e
 
 
 def is_weekend(date: datetime) -> bool:
@@ -214,3 +240,7 @@ def is_weekend(date: datetime) -> bool:
         True если выходной, иначе False
     """
     return date.weekday() >= 5
+
+
+# Инициализация логирования при импорте
+setup_logging()
