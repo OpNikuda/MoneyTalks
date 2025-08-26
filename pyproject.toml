@@ -25,3 +25,12 @@ flake = "^7.3.0"
 mypy = "^1.10.0"
 python-dotenv = "^1.0.0"
 
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.black]
+line_length = 88
+
+[tool.mypy]
+strict = true

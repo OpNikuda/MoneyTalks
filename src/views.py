@@ -1,9 +1,9 @@
-from typing import Dict, List, Any
-import requests
-import os
 import logging
-from dotenv import load_dotenv
+import os
+from typing import Any, Dict, List
 
+import requests
+from dotenv import load_dotenv
 
 # Загрузка переменных окружения
 load_dotenv()
