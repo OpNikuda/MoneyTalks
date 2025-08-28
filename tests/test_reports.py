@@ -1,11 +1,13 @@
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from src.reports import (
+    report_to_file,
+    save_to_excel,
     spending_by_category,
     spending_by_weekday,
     spending_by_workday,
@@ -51,7 +53,7 @@ def test_spending_by_category_basic(mock_load_transactions):
 def test_spending_by_category_nonexistent_category(mock_load_transactions):
     """Тест spending_by_category для несуществующей категории"""
     # Мокаем возврат данных без нужной категории
-    dates = pd.date_range(start='2024-01-01', end='2024-01-10', freq='D')
+    dates = pd.date_range(start='2026-01-01', end='2026-01-10', freq='D')
     mock_transactions = pd.DataFrame({
         'date': dates,
         'amount': [-100] * len(dates),
@@ -71,7 +73,7 @@ def test_spending_by_category_nonexistent_category(mock_load_transactions):
 
 def test_spending_by_category_date_filter(mock_load_transactions):
     """Тест фильтрации по дате в spending_by_category"""
-    test_date = '2024-03-15'
+    test_date = '2026-03-15'
 
     result = spending_by_category(
         'dummy_path.csv',
@@ -107,7 +109,7 @@ def test_spending_by_category_missing_category_column():
     with patch('src.reports.load_transactions') as mock_load:
         # Создаем DataFrame без колонки category
         mock_transactions = pd.DataFrame({
-            'date': [datetime(2024, 1, 1)],
+            'date': [datetime(3026, 1, 1)],
             'amount': [-100],
             'description': ['test']
         })
@@ -128,7 +130,7 @@ def test_spending_functions_with_positive_amounts():
     """Тест фильтрации положительных сумм (доходов)"""
     with patch('src.reports.load_transactions') as mock_load:
         # Создаем данные только с положительными суммами (доходы)
-        dates = pd.date_range(start='2024-01-01', end='2024-01-05', freq='D')
+        dates = pd.date_range(start='2026-01-01', end='2026-01-05', freq='D')
         mock_transactions = pd.DataFrame({
             'date': dates,
             'amount': [100] * len(dates),  # Положительные значения
@@ -144,3 +146,73 @@ def test_spending_functions_with_positive_amounts():
         assert len(result1) == 0
         assert len(result2) == 0
         assert len(result3) == 0
+
+
+@patch('builtins.open', new_callable=mock_open)
+@patch('pandas.DataFrame.to_csv')
+def test_report_to_file_csv(mock_to_csv, mock_file):
+    """Тест декоратора report_to_file для CSV"""
+
+    @report_to_file('test.csv')
+    def test_func(file_path, **kwargs):
+        return pd.DataFrame({'test': [1, 2, 3]})
+
+    with patch('src.reports.load_transactions') as mock_load:
+        mock_load.return_value = pd.DataFrame()
+        test_func('dummy.csv')
+
+        mock_to_csv.assert_called_once()
+
+
+@patch('src.reports.save_to_excel')
+def test_report_to_file_excel(mock_save_excel):
+    """Тест декоратора report_to_file для Excel"""
+
+    @report_to_file('test.xlsx')
+    def test_func(file_path, **kwargs):
+        return pd.DataFrame({'test': [1, 2, 3]})
+
+    with patch('src.reports.load_transactions') as mock_load:
+        mock_load.return_value = pd.DataFrame()
+        test_func('dummy.csv')
+
+        mock_save_excel.assert_called_once()
+
+
+@patch('pandas.DataFrame.to_excel')
+def test_save_to_excel(mock_to_excel):
+    """Тест сохранения в Excel"""
+    df = pd.DataFrame({'test': [1, 2, 3]})
+    save_to_excel(df, 'test.xlsx', 'test_sheet')
+
+    mock_to_excel.assert_called_once_with('test.xlsx', sheet_name='test_sheet', index=False)
+
+
+def test_report_to_file_skip_save():
+    """Тест пропуска сохранения при skip_save=True"""
+
+    @report_to_file('test.csv')
+    def test_func(file_path, **kwargs):
+        return pd.DataFrame({'test': [1, 2, 3]})
+
+    with patch('src.reports.load_transactions') as mock_load, \
+            patch('pandas.DataFrame.to_csv') as mock_to_csv:
+        mock_load.return_value = pd.DataFrame()
+        test_func('dummy.csv', skip_save=True)
+
+        mock_to_csv.assert_not_called()
+
+
+@patch('builtins.open', new_callable=mock_open)
+def test_report_to_file_non_dataframe(mock_file):
+    """Тест декоратора с не-DataFrame результатом"""
+
+    @report_to_file('test.txt')
+    def test_func(file_path, **kwargs):
+        return "text result"
+
+    with patch('src.reports.load_transactions') as mock_load:
+        mock_load.return_value = pd.DataFrame()
+        test_func('dummy.csv')
+
+        mock_file.assert_called_once_with('test.txt', 'w', encoding='utf-8')

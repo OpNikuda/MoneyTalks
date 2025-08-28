@@ -1,22 +1,29 @@
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from src.main import generate_home_data, get_greeting, main_function
+from src.main import (
+    datetime_encoder,
+    generate_home_data,
+    get_greeting,
+    main_function,
+)
 
 
 def test_get_greeting():
     """Тест приветствия по времени суток"""
-    assert get_greeting(datetime(2023, 1, 1, 6, 0)) == "Доброе утро"
-    assert get_greeting(datetime(2023, 1, 1, 13, 0)) == "Добрый день"
-    assert get_greeting(datetime(2023, 1, 1, 20, 0)) == "Добрый вечер"
-    assert get_greeting(datetime(2023, 1, 1, 2, 0)) == "Доброй ночи"
+    assert get_greeting(datetime(2025, 1, 1, 6, 0)) == "Доброе утро"
+    assert get_greeting(datetime(2025, 1, 1, 13, 0)) == "Добрый день"
+    assert get_greeting(datetime(2025, 1, 1, 20, 0)) == "Добрый вечер"
+    assert get_greeting(datetime(2025, 1, 1, 2)) == "Доброй ночи"
 
 
 @patch('src.main.filter_transactions_by_date')
-def test_generate_home_data(mock_filter):
+@patch('src.main.get_currency_rates')
+@patch('src.main.get_stock_prices')
+def test_generate_home_data(mock_stock, mock_currency, mock_filter):
     """Тест генерации данных для домашней страницы"""
     # Создаем тестовый DataFrame
     test_df = pd.DataFrame({
@@ -29,13 +36,16 @@ def test_generate_home_data(mock_filter):
     })
 
     mock_filter.return_value = test_df
+    mock_currency.return_value = [{'currency': 'USD', 'rate': 75.0}]
+    mock_stock.return_value = [{'stock': 'AAPL', 'price': 150.0}]
 
-    result = generate_home_data(test_df, '2023-01-15')
+    result = generate_home_data(test_df, '2025-01-15')
 
     assert 'cards' in result
     assert 'top_transactions' in result
     assert 'currency_rates' in result
     assert 'stock_prices' in result
+    assert 'greeting' in result
     assert len(result['cards']) == 2  # Две уникальные карты
 
 
@@ -48,7 +58,7 @@ def test_main_function_success(mock_print, mock_generate, mock_load, mock_parse_
     # Mock аргументов
     mock_args = MagicMock()
     mock_args.file = 'test.csv'
-    mock_args.date = '2023-01-01'
+    mock_args.date = '2025-01-01'
     mock_parse_args.return_value = mock_args
 
     # Mock данных
@@ -60,3 +70,35 @@ def test_main_function_success(mock_print, mock_generate, mock_load, mock_parse_
 
     mock_print.assert_called()
     mock_load.assert_called_with('test.csv')
+
+
+@patch('argparse.ArgumentParser.parse_args')
+@patch('src.main.load_transactions')
+@patch('builtins.print')
+def test_main_function_file_not_found(mock_print, mock_load, mock_parse_args):
+    """Тест обработки отсутствия файла"""
+    mock_args = MagicMock()
+    mock_args.file = 'nonexistent.csv'
+    mock_args.date = '2025-01-01'
+    mock_parse_args.return_value = mock_args
+    mock_load.side_effect = FileNotFoundError("File not found")
+
+    main_function()
+
+    mock_print.assert_called_with("Ошибка: Файл nonexistent.csv не найден")
+
+
+def test_datetime_encoder():
+    """Тест кодировщика datetime для JSON"""
+    test_date = datetime(2025, 1, 1, 12, 0, 0)
+    result = datetime_encoder(test_date)
+    assert result == '2025-01-01T12:00:00'
+
+    # Test with date object
+    test_date_only = date(2025, 1, 1)
+    result = datetime_encoder(test_date_only)
+    assert result == '2025-01-01'
+
+    # Test with unsupported type
+    with pytest.raises(TypeError):
+        datetime_encoder({"test": "data"})
