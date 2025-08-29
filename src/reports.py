@@ -29,15 +29,20 @@ def report_to_file(default_filename: Optional[str] = None) -> Callable:
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(file_path: Union[str, Path], *args: Any, **kwargs: Any) -> Any:
-            # 1. Загружаем данные
-            try:
-                logger.info(f"Загрузка данных из файла: {file_path}")
-                transactions = load_transactions(file_path)
-                kwargs['transactions'] = transactions
-                logger.debug(f"Успешно загружено {len(transactions)} транзакций")
-            except Exception as e:
-                logger.error(f"Ошибка загрузки файла {file_path}: {str(e)}", exc_info=True)
-                raise
+            # Проверяем, передан ли уже готовый DataFrame
+            if 'transactions' in kwargs and isinstance(kwargs['transactions'], pd.DataFrame):
+                transactions = kwargs['transactions']
+                logger.debug(f"Используется переданный DataFrame размером {len(transactions)} строк")
+            else:
+                # 1. Загружаем данные из файла
+                try:
+                    logger.info(f"Загрузка данных из файла: {file_path}")
+                    transactions = load_transactions(file_path)
+                    kwargs['transactions'] = transactions
+                    logger.debug(f"Успешно загружено {len(transactions)} транзакций")
+                except Exception as e:
+                    logger.error(f"Ошибка загрузки файла {file_path}: {str(e)}", exc_info=True)
+                    raise
 
             # 2. Вызываем исходную функцию
             logger.debug(f"Вызов функции {func.__name__} с параметрами: {args}, {kwargs}")
@@ -112,45 +117,46 @@ def spending_by_category(
 ) -> pd.DataFrame:
     """
     Генерирует отчет о тратах по указанной категории за последние 3 месяца.
+    Может принимать как DataFrame, так и путь к файлу (CSV/XLSX).
 
     Args:
-        file_path: Путь к файлу с транзакциями
+        file_path: Путь к файлу с транзакциями или DataFrame
         category: Категория для анализа
         date: Дата отчета (опционально)
         **kwargs: Дополнительные аргументы
 
     Returns:
-        DataFrame с тратами по месяцам для указанной категории
+        DataFrame с отчетом по тратам по категории
     """
-    transactions = kwargs['transactions']
-    logger.info(f"Генерация отчёта по категории '{category}'")
+    # Получаем транзакции из kwargs или загружаем из файла
+    if 'transactions' in kwargs:
+        df = kwargs['transactions']
+        logger.debug("Используется переданный DataFrame")
+    else:
+        df = load_transactions(file_path)
+        logger.debug(f"Загружен DataFrame из файла: {len(df)} строк")
 
-    # Проверяем наличие столбца category
-    if 'category' not in transactions.columns:
-        logger.warning("Столбец 'category' не найден в данных")
+    if 'category' not in df.columns:
+        logger.warning("Столбец 'category' отсутствует в данных")
         return pd.DataFrame(columns=['Месяц', 'Категория', 'Сумма'])
 
-    # Обработка даты
     date_obj = datetime.now() if date is None else pd.to_datetime(date)
     start_date = date_obj - pd.DateOffset(months=3)
-    logger.debug(f"Период анализа: с {start_date.strftime('%Y-%m-%d')} по {date_obj.strftime('%Y-%m-%d')}")
 
-    # Фильтрация данных
+    logger.debug(f"Анализ категории '{category}' за период с {start_date} по {date_obj}")
+
     mask = (
-            (transactions['category'].str.lower() == category.lower()) &
-            (transactions['amount'] < 0) &
-            (transactions['date'] >= start_date) &
-            (transactions['date'] <= date_obj)
+            (df['category'].str.lower() == category.lower()) &
+            (df['amount'] < 0) &
+            (df['date'] >= start_date) &
+            (df['date'] <= date_obj)
     )
-    filtered = transactions[mask].copy()
+    filtered = df[mask].copy()
 
     if filtered.empty:
-        logger.warning(f"Нет данных по категории '{category}' за указанный период")
+        logger.info(f"Нет данных по категории '{category}' за указанный период")
         return pd.DataFrame(columns=['Месяц', 'Категория', 'Сумма'])
 
-    logger.debug(f"Найдено {len(filtered)} транзакций по категории '{category}'")
-
-    # Агрегация по месяцам
     result = (
         filtered
         .assign(Месяц=filtered['date'].dt.to_period('M'))
@@ -158,11 +164,9 @@ def spending_by_category(
         .agg(Сумма=('amount', 'sum'))
         .rename(columns={'category': 'Категория'})
     )
-
-    # Делаем суммы положительными
     result['Сумма'] = result['Сумма'].abs()
-    logger.info(f"Отчёт по категории '{category}' сгенерирован: {len(result)} записей")
 
+    logger.info(f"Отчёт по категории '{category}' сгенерирован: {len(result)} записей")
     return result
 
 
@@ -184,7 +188,14 @@ def spending_by_weekday(
     Returns:
         DataFrame со средними тратами по дням недели
     """
-    transactions = kwargs['transactions']
+    # Получаем транзакции из kwargs или загружаем из файла
+    if 'transactions' in kwargs:
+        transactions = kwargs['transactions']
+        logger.debug("Используется переданный DataFrame для spending_by_weekday")
+    else:
+        transactions = load_transactions(file_path)
+        logger.debug(f"Загружен DataFrame из файла для spending_by_weekday: {len(transactions)} строк")
+
     logger.info("Генерация отчёта по дням недели")
 
     date_obj = datetime.now() if date is None else pd.to_datetime(date)
@@ -249,7 +260,14 @@ def spending_by_workday(
     Returns:
         DataFrame со средними тратами по типам дней
     """
-    transactions = kwargs['transactions']
+    # Получаем транзакции из kwargs или загружаем из файла
+    if 'transactions' in kwargs:
+        transactions = kwargs['transactions']
+        logger.debug("Используется переданный DataFrame для spending_by_workday")
+    else:
+        transactions = load_transactions(file_path)
+        logger.debug(f"Загружен DataFrame из файла для spending_by_workday: {len(transactions)} строк")
+
     logger.info("Генерация отчёта по типам дней (рабочие/выходные)")
 
     date_obj = datetime.now() if date is None else pd.to_datetime(date)
