@@ -22,17 +22,41 @@ logger = logging.getLogger(__name__)
 
 
 def datetime_encoder(obj: Any) -> Any:
+    """
+    Кастомный JSON encoder для обработки объектов datetime и date.
+
+    Args:
+        obj (Any): Объект для сериализации
+
+    Returns:
+        Any: Строковое представление даты в формате ISO, если объект является datetime/date
+
+    Raises:
+        TypeError: Если объект не может быть сериализован
+    """
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def services_page(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
+def services_page(file_path: str, date_str: str) -> Dict[str, Any]:
     """
-    Страница Сервисы. Вызывает бизнес-логику из services.py
+    Генерирует данные для страницы Сервисы с анализом кэшбэка по категориям.
+
+    Args:
+        file_path (str): Путь к файлу с транзакциями
+        date_str (str): Дата анализа в формате 'YYYY-MM-DD'
+
+    Returns:
+        Dict[str, Any]: Словарь с данными для страницы Сервисы, включая:
+            - page (str): Название страницы
+            - cashback_analysis (Dict): Анализ кэшбэка по категориям
+            - timestamp (str): Временная метка
+            или error (str): Сообщение об ошибке в случае исключения
     """
     logger.info("Генерация данных для страницы Сервисы")
     try:
+        df = load_transactions(file_path)
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         cashback_analysis = analyze_cashback_categories(
             df.to_dict(orient="records"),
@@ -42,7 +66,7 @@ def services_page(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
         return {
             "page": "services",
             "cashback_analysis": cashback_analysis,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": date_str
         }
     except Exception as e:
         logger.error(f"Ошибка в services_page: {str(e)}")
@@ -51,7 +75,19 @@ def services_page(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
 
 def reports_page(file_path: str, category: str, date_str: str) -> Dict[str, Any]:
     """
-    Страница Отчеты. Вызывает бизнес-логику из reports.py
+    Генерирует данные для страницы Отчеты с анализом расходов по категориям.
+
+    Args:
+        file_path (str): Путь к файлу с транзакциями
+        category (str): Категория для анализа расходов
+        date_str (str): Дата анализа в формате 'YYYY-MM-DD'
+
+    Returns:
+        Dict[str, Any]: Словарь с данными для страницы Отчеты, включая:
+            - page (str): Название страницы
+            - report (List[Dict]): Отчет по расходам в виде списка словарей
+            - timestamp (str): Временная метка
+            или error (str): Сообщение об ошибке в случае исключения
     """
     logger.info("Генерация данных для страницы Отчеты")
     try:
@@ -61,7 +97,7 @@ def reports_page(file_path: str, category: str, date_str: str) -> Dict[str, Any]
         return {
             "page": "reports",
             "report": report_df.to_dict(orient="records"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": date_str
         }
     except Exception as e:
         logger.error(f"Ошибка в reports_page: {str(e)}")
@@ -69,6 +105,15 @@ def reports_page(file_path: str, category: str, date_str: str) -> Dict[str, Any]
 
 
 def get_greeting(date_obj: datetime) -> str:
+    """
+    Возвращает приветствие в зависимости от времени суток.
+
+    Args:
+        date_obj (datetime): Объект datetime для определения времени суток
+
+    Returns:
+        str: Приветствие ('Доброе утро', 'Добрый день', 'Добрый вечер', 'Доброй ночи')
+    """
     hour = date_obj.hour
     if 5 <= hour < 12:
         return "Доброе утро"
@@ -80,6 +125,25 @@ def get_greeting(date_obj: datetime) -> str:
 
 
 def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
+    """
+    Генерирует данные для домашней страницы с основной аналитикой.
+
+    Args:
+        df (pd.DataFrame): DataFrame с транзакциями
+        date_str (str): Дата анализа в формате 'YYYY-MM-DD'
+
+    Returns:
+        Dict[str, Any]: Словарь с данными для домашней страницы, включая:
+            - greeting (str): Приветствие
+            - cards (List[Dict]): Информация по картам (последние цифры, потраченная сумма, кэшбэк)
+            - top_transactions (List[Dict]): Топ-5 транзакций
+            - currency_rates (Dict): Курсы валют
+            - stock_prices (Dict): Цены акций
+            - analysis_date (str): Дата анализа
+
+    Raises:
+        Exception: В случае ошибки при обработке данных
+    """
     try:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         start_date = date_obj.replace(day=1)
@@ -89,9 +153,7 @@ def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
         # Данные по картам
         cards = []
         if 'card_last_digits' in filtered_df.columns:
-            for card in filtered_df['card_last_digits'].unique():
-                if pd.isna(card):
-                    continue
+            for card in filtered_df['card_last_digits'].dropna().unique():
                 card_df = filtered_df[filtered_df['card_last_digits'] == card]
                 total_spent = card_df[card_df['amount'] < 0]['amount'].sum() * -1
                 cards.append({
@@ -124,6 +186,16 @@ def generate_home_data(df: pd.DataFrame, date_str: str) -> Dict[str, Any]:
 
 
 def main_function() -> None:
+    """
+    Основная функция приложения для анализа банковских транзакций.
+
+    Обрабатывает аргументы командной строки, загружает данные и выводит результат
+    анализа в формате JSON.
+
+    Raises:
+        FileNotFoundError: Если указанный файл не найден
+        Exception: При возникновении других ошибок в работе приложения
+    """
     try:
         parser = argparse.ArgumentParser(description='Анализ банковских транзакций')
         parser.add_argument('file', help='Excel или CSV файл с транзакциями')
@@ -149,28 +221,29 @@ def main_function() -> None:
         raise
 
 
-def run_all_pages() -> None:
+def run_all_pages(file_path: str) -> None:
+    """
+    Запускает генерацию данных для всех страниц приложения.
+
+    Args:
+        file_path (str): Путь к файлу с транзакциями
+
+    Выводит в консоль данные для домашней страницы, страницы сервисов и отчетов.
+    """
     try:
+        df = load_transactions(file_path)
+        date_str = datetime.now().strftime('%Y-%m-%d')
+
         print("=== ДОМАШНЯЯ СТРАНИЦА ===")
-        test_df = pd.DataFrame({
-            'date': [datetime.now()],
-            'amount': [-500, -1200, 1000],
-            'card_last_digits': ['1234', '1234', '5678'],
-            'category': ['Еда', 'Развлечения', 'test'],
-            'description': ['покупка еды', 'кино', 'тест']
-        })
-        home_data = generate_home_data(test_df, datetime.now().strftime('%Y-%m-%d'))
+        home_data = generate_home_data(df, date_str)
         print(json.dumps(home_data, indent=2, ensure_ascii=False, default=datetime_encoder))
 
         print("\n=== СТРАНИЦА СЕРВИСЫ ===")
-        services_data = services_page(test_df, datetime.now().strftime('%Y-%m-%d'))
+        services_data = services_page(file_path, date_str)
         print(json.dumps(services_data, indent=2, ensure_ascii=False))
 
         print("\n=== СТРАНИЦА ОТЧЕТЫ ===")
-        # передаём временный csv файл для теста
-        test_file = "test_transactions.csv"
-        test_df.to_csv(test_file, index=False)
-        reports_data = reports_page(test_file, category="Еда", date_str=datetime.now().strftime('%Y-%m-%d'))
+        reports_data = reports_page(file_path, category="Еда", date_str=date_str)
         print(json.dumps(reports_data, indent=2, ensure_ascii=False))
 
     except Exception as e:
